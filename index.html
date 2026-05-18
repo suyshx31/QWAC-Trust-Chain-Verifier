@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QWAC Trust Chain Verifier — eIDAS 2.0 Demonstration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0a09;
+    --surface: #1c1917;
+    --surface-2: #292524;
+    --border: #44403c;
+    --text: #f5f5f4;
+    --text-dim: #a8a29e;
+    --text-mute: #78716c;
+    --accent: #d4a253;
+    --accent-soft: rgba(212, 162, 83, 0.12);
+    --danger: #ef4444;
+    --success: #84cc16;
+    --info: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(212, 162, 83, 0.08), transparent 40%),
+      radial-gradient(circle at 80% 100%, rgba(56, 189, 248, 0.04), transparent 50%);
+  }
+  .grain::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.83 0 0 0 0 0.64 0 0 0 0 0.32 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+  }
+  .container { max-width: 1280px; margin: 0 auto; padding: 48px 32px; position: relative; z-index: 2; }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: end;
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(2.2rem, 4vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    margin-top: 16px;
+    max-width: 580px;
+    font-size: 15px;
+  }
+  .meta {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-mute);
+    line-height: 1.8;
+  }
+  .meta a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
+  .meta a:hover { color: var(--text); }
+
+  .layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+    border-radius: 2px;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-title::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .input-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; margin-bottom: 16px; }
+  input[type="text"], select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    border-radius: 2px;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, select:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 14px 24px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  button:hover:not(:disabled) { background: var(--text); transform: translateY(-1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .quick-banks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip-label { color: var(--text-mute); font-size: 10px; padding: 6px 0; }
+
+  .status {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--surface-2);
+    border-left: 2px solid var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.error { border-left-color: var(--danger); }
+
+  .results { margin-top: 32px; }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 640px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    border-radius: 2px;
+  }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-value.qwac { color: var(--accent); }
+  .stat-value.warn { color: var(--danger); }
+  .stat-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-mute);
+    margin-top: 6px;
+  }
+
+  .cert-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+    border-radius: 2px;
+  }
+  .cert-card:hover { border-color: var(--accent); }
+  .cert-card.qwac { border-left: 3px solid var(--accent); }
+  .cert-card.expired { opacity: 0.55; }
+  .cert-header {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+    cursor: pointer;
+  }
+  .cert-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-mute);
+    min-width: 80px;
+  }
+  .cert-cn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .cert-issuer {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .badge.qwac { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+  .badge.standard { background: var(--surface-2); color: var(--text-mute); border: 1px solid var(--border); }
+  .badge.expired { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); }
+  .badge.active { background: rgba(132, 204, 22, 0.08); color: var(--success); border: 1px solid var(--success); }
+
+  .cert-detail {
+    display: none;
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .cert-detail.show { display: block; }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px 24px;
+    padding: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .detail-label { color: var(--text-mute); }
+  .detail-value { color: var(--text-dim); word-break: break-all; }
+  .detail-value a { color: var(--accent); text-decoration: none; }
+  .detail-value a:hover { text-decoration: underline; }
+
+  aside { display: flex; flex-direction: column; gap: 24px; }
+  .source-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    border-radius: 2px;
+  }
+  .source-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .source-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    margin-bottom: 6px;
+    line-height: 1.25;
+  }
+  .source-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .source-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    display: inline-block;
+    border-bottom: 1px solid var(--accent);
+    padding-bottom: 2px;
+  }
+  .source-link:hover { color: var(--text); border-color: var(--text); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-mute);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  .loader {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--accent);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-mute);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+</style>
+</head>
+<body class="grain">
+<div class="container">
+
+  <header>
+    <div>
+      <div class="eyebrow">eIDAS 2.0 · QWAC Trust Chain Demonstrator</div>
+      <h1>Tracing certificate <em>provenance</em> for EU banking onboarding</h1>
+      <p class="subtitle">
+        This tool resolves a bank's domain against publicly logged Certificate Transparency records
+        and cross-references the issuing authority with the EU's official register of Qualified
+        Trust Service Providers. Every data point shown is fetched live from authoritative,
+        verifiable sources.
+      </p>
+    </div>
+    <div class="meta">
+      Companion to research paper<br/>
+      <span style="color: var(--text-dim);">Security &amp; Privacy Evaluation of QWAC Trust Chains</span><br/>
+      <br/>
+      Data sources<br/>
+      <a href="https://crt.sh" target="_blank" rel="noopener">crt.sh</a> ·
+      <a href="https://eidas.ec.europa.eu/efda/tl-browser/" target="_blank" rel="noopener">EU LOTL</a> ·
+      <a href="https://euclid.eba.europa.eu/register/" target="_blank" rel="noopener">EBA</a>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <main>
+      <div class="panel">
+        <div class="panel-title">Query · Certificate Transparency Lookup</div>
+
+        <div class="input-row">
+          <input type="text" id="domain" placeholder="e.g. deutsche-bank.de" autocomplete="off" />
+          <button id="lookup">Resolve Chain</button>
+        </div>
+
+        <div class="chip-label">Demonstration domains (real EU credit institutions):</div>
+        <div class="quick-banks">
+          <span class="chip" data-domain="deutsche-bank.de">deutsche-bank.de</span>
+          <span class="chip" data-domain="bnpparibas.com">bnpparibas.com</span>
+          <span class="chip" data-domain="ing.com">ing.com</span>
+          <span class="chip" data-domain="santander.com">santander.com</span>
+          <span class="chip" data-domain="unicredit.eu">unicredit.eu</span>
+          <span class="chip" data-domain="intesasanpaolo.com">intesasanpaolo.com</span>
+          <span class="chip" data-domain="bbva.com">bbva.com</span>
+          <span class="chip" data-domain="rabobank.com">rabobank.com</span>
+        </div>
+
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="results" id="results"></div>
+    </main>
+
+    <aside>
+      <div class="source-card">
+        <div class="source-eyebrow">Source · EU Commission</div>
+        <div class="source-title">EU List of Trusted Lists</div>
+        <div class="source-desc">
+          The authoritative register of Qualified Trust Service Providers
+          accredited under eIDAS to issue QWAC certificates. Maintained by
+          the European Commission.
+        </div>
+        <a class="source-link" href="https://eidas.ec.europa.eu/efda/tl-browser/" target="_blank" rel="noopener">
+          eidas.ec.europa.eu/efda/tl-browser →
+        </a>
+      </div>
+
+      <div class="source-card">
+        <div class="source-eyebrow">Source · European Banking Authority</div>
+        <div class="source-title">EU Credit Institutions Register</div>
+        <div class="source-desc">
+          The EBA's official register of every authorised credit institution
+          in the EU. All listed banks fall under the eIDAS 2.0 mandate to
+          accept EUDIW credentials by 2026.
+        </div>
+        <a class="source-link" href="https://euclid.eba.europa.eu/register/" target="_blank" rel="noopener">
+          euclid.eba.europa.eu/register →
+        </a>
+      </div>
+
+      <div class="source-card">
+        <div class="source-eyebrow">Source · Certificate Transparency</div>
+        <div class="source-title">crt.sh CT Log Search</div>
+        <div class="source-desc">
+          Public, append-only logs of every TLS certificate issued by
+          participating CAs. Operated by Sectigo. This tool queries the
+          crt.sh JSON endpoint directly.
+        </div>
+        <a class="source-link" href="https://crt.sh" target="_blank" rel="noopener">
+          crt.sh →
+        </a>
+      </div>
+
+      <div class="source-card" style="border-color: var(--accent);">
+        <div class="source-eyebrow">Regulation</div>
+        <div class="source-title">eIDAS 2.0 (EU 2024/1183)</div>
+        <div class="source-desc">
+          Defines QWACs as the highest-assurance TLS certificate class.
+          QWAC qualified policy OID: <code style="color: var(--accent); font-family: 'JetBrains Mono', monospace;">0.4.0.194121.1.4</code>
+        </div>
+        <a class="source-link" href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1183" target="_blank" rel="noopener">
+          eur-lex.europa.eu →
+        </a>
+      </div>
+    </aside>
+
+  </div>
+
+  <footer>
+    <div>Built as a research demonstrator · No data is stored client-side or transmitted to third parties beyond the three named sources.</div>
+    <div>Module · QWAC-TCV v0.1</div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   Known EU Qualified Trust Service Providers (QTSPs)
+   ------------------------------------------------------------
+   This list is a NON-EXHAUSTIVE subset of QTSPs that appear on
+   the EU List of Trusted Lists at the time of writing. The
+   authoritative current list MUST be consulted at:
+   https://eidas.ec.europa.eu/efda/tl-browser/
+   ============================================================ */
+const KNOWN_QTSPS = [
+  { match: 'd-trust', name: 'D-Trust GmbH', country: 'DE' },
+  { match: 'bundesdruckerei', name: 'Bundesdruckerei GmbH', country: 'DE' },
+  { match: 'buypass', name: 'Buypass AS', country: 'NO' },
+  { match: 'camerfirma', name: 'AC Camerfirma', country: 'ES' },
+  { match: 'certinomis', name: 'Certinomis', country: 'FR' },
+  { match: 'infocert', name: 'InfoCert S.p.A.', country: 'IT' },
+  { match: 'a-trust', name: 'A-Trust GmbH', country: 'AT' },
+  { match: 'kir s.a.', name: 'Krajowa Izba Rozliczeniowa S.A.', country: 'PL' },
+  { match: 'globalsign nv-sa', name: 'GlobalSign NV-SA', country: 'BE' },
+  { match: 'firmaprofesional', name: 'Firmaprofesional S.A.', country: 'ES' },
+  { match: 'actalis', name: 'Actalis S.p.A.', country: 'IT' },
+  { match: 'aruba pec', name: 'Aruba PEC S.p.A.', country: 'IT' },
+  { match: 'namirial', name: 'Namirial S.p.A.', country: 'IT' },
+  { match: 'evrotrust', name: 'Evrotrust Technologies AD', country: 'BG' },
+  { match: 'cybertrust japan', name: 'Cybertrust', country: 'JP/EU-listed' },
+  { match: 'cesnet', name: 'CESNET', country: 'CZ' },
+  { match: 'sk id solutions', name: 'SK ID Solutions AS', country: 'EE' },
+  { match: 'staat der nederlanden', name: 'Staat der Nederlanden', country: 'NL' },
+  { match: 'izenpe', name: 'IZENPE S.A.', country: 'ES' },
+];
+
+const CRT_SH_ENDPOINT = 'https://crt.sh/';
+const $ = (s) => document.querySelector(s);
+
+function setStatus(msg, error = false, loading = false) {
+  const el = $('#status');
+  el.classList.add('show');
+  el.classList.toggle('error', error);
+  el.innerHTML = (loading ? '<span class="loader"></span>' : '') + msg;
+}
+function clearStatus() { $('#status').classList.remove('show'); }
+
+function detectQTSP(issuerName) {
+  if (!issuerName) return null;
+  const lower = issuerName.toLowerCase();
+  return KNOWN_QTSPS.find(q => lower.includes(q.match)) || null;
+}
+
+function isExpired(notAfter) {
+  return new Date(notAfter) < new Date();
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function formatDate(s) {
+  try { return new Date(s).toISOString().split('T')[0]; }
+  catch { return s || '—'; }
+}
+
+function renderResults(domain, certs) {
+  const results = $('#results');
+  if (!certs || certs.length === 0) {
+    results.innerHTML = `<div class="empty">No certificates found in CT logs for <code>${escapeHtml(domain)}</code>.</div>`;
+    return;
+  }
+
+  // De-duplicate by (issuer, common_name, not_before) — crt.sh returns one row per CT log entry
+  const seen = new Set();
+  const unique = [];
+  for (const c of certs) {
+    const key = `${c.issuer_name}|${c.common_name}|${c.not_before}`;
+    if (!seen.has(key)) { seen.add(key); unique.push(c); }
+  }
+
+  let qtspCount = 0;
+  let activeCount = 0;
+  for (const c of unique) {
+    if (detectQTSP(c.issuer_name)) qtspCount++;
+    if (!isExpired(c.not_after)) activeCount++;
+  }
+
+  const summaryHtml = `
+    <div class="summary">
+      <div class="stat">
+        <div class="stat-label">Total Certificates</div>
+        <div class="stat-value">${unique.length}</div>
+        <div class="stat-sub">CT log entries (deduplicated)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Currently Valid</div>
+        <div class="stat-value">${activeCount}</div>
+        <div class="stat-sub">Not-after &gt; today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">From EU QTSP</div>
+        <div class="stat-value qwac">${qtspCount}</div>
+        <div class="stat-sub">Issuer matched on EU Trust List</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">QWAC Indicators</div>
+        <div class="stat-value ${qtspCount > 0 ? 'qwac' : 'warn'}">${qtspCount > 0 ? 'PRESENT' : 'NONE'}</div>
+        <div class="stat-sub">${qtspCount > 0 ? 'Verify OID 0.4.0.194121.1.4 in cert' : 'No qualified issuer detected'}</div>
+      </div>
+    </div>
+  `;
+
+  // Sort: QTSP-issued first, then by not_before desc
+  unique.sort((a, b) => {
+    const aQ = detectQTSP(a.issuer_name) ? 1 : 0;
+    const bQ = detectQTSP(b.issuer_name) ? 1 : 0;
+    if (aQ !== bQ) return bQ - aQ;
+    return new Date(b.not_before) - new Date(a.not_before);
+  });
+
+  // Show first 30 to keep the page responsive
+  const shown = unique.slice(0, 30);
+
+  const cardsHtml = shown.map((c, idx) => {
+    const qtsp = detectQTSP(c.issuer_name);
+    const expired = isExpired(c.not_after);
+    return `
+      <div class="cert-card ${qtsp ? 'qwac' : ''} ${expired ? 'expired' : ''}">
+        <div class="cert-header" data-idx="${idx}">
+          <div class="cert-id">#${escapeHtml(c.id)}</div>
+          <div>
+            <div class="cert-cn">${escapeHtml(c.common_name || c.name_value?.split('\n')[0] || '—')}</div>
+            <div class="cert-issuer">${escapeHtml(c.issuer_name || '—')}</div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-direction: column; align-items: flex-end;">
+            <span class="badge ${qtsp ? 'qwac' : 'standard'}">${qtsp ? 'QTSP' : 'Standard CA'}</span>
+            <span class="badge ${expired ? 'expired' : 'active'}">${expired ? 'Expired' : 'Active'}</span>
+          </div>
+        </div>
+        <div class="cert-detail" id="detail-${idx}">
+          <div class="detail-grid">
+            <div class="detail-label">CT log ID</div>
+            <div class="detail-value">
+              <a href="https://crt.sh/?id=${escapeHtml(c.id)}" target="_blank" rel="noopener">crt.sh/?id=${escapeHtml(c.id)}</a>
+            </div>
+            <div class="detail-label">Serial number</div>
+            <div class="detail-value">${escapeHtml(c.serial_number || '—')}</div>
+            <div class="detail-label">Subject CN</div>
+            <div class="detail-value">${escapeHtml(c.common_name || '—')}</div>
+            <div class="detail-label">All SANs</div>
+            <div class="detail-value">${escapeHtml((c.name_value || '').split('\n').slice(0, 12).join(', '))}${(c.name_value || '').split('\n').length > 12 ? ' …' : ''}</div>
+            <div class="detail-label">Issuer DN</div>
+            <div class="detail-value">${escapeHtml(c.issuer_name || '—')}</div>
+            ${qtsp ? `
+            <div class="detail-label">EU QTSP match</div>
+            <div class="detail-value" style="color: var(--accent);">
+              ${escapeHtml(qtsp.name)} (${escapeHtml(qtsp.country)}) ·
+              <a href="https://eidas.ec.europa.eu/efda/tl-browser/" target="_blank" rel="noopener">verify on EU LOTL</a>
+            </div>` : ''}
+            <div class="detail-label">Valid from</div>
+            <div class="detail-value">${formatDate(c.not_before)}</div>
+            <div class="detail-label">Valid until</div>
+            <div class="detail-value">${formatDate(c.not_after)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const moreNote = unique.length > 30
+    ? `<div class="empty" style="padding: 20px;">Showing 30 of ${unique.length} entries. The full set is available at <a href="https://crt.sh/?q=${encodeURIComponent(domain)}" target="_blank" rel="noopener" style="color: var(--accent);">crt.sh/?q=${escapeHtml(domain)}</a>.</div>`
+    : '';
+
+  results.innerHTML = summaryHtml + cardsHtml + moreNote;
+
+  // Attach click handlers for expansion
+  results.querySelectorAll('.cert-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const idx = h.dataset.idx;
+      $('#detail-' + idx).classList.toggle('show');
+    });
+  });
+}
+
+async function lookup(domain) {
+  domain = domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (!domain) {
+    setStatus('Please enter a domain (e.g. deutsche-bank.de).', true);
+    return;
+  }
+  $('#results').innerHTML = '';
+  setStatus(`Querying crt.sh Certificate Transparency log for <strong style="color: var(--accent);">${escapeHtml(domain)}</strong> …`, false, true);
+
+  try {
+    // crt.sh JSON endpoint: returns array of CT log entries
+    const url = `${CRT_SH_ENDPOINT}?q=${encodeURIComponent(domain)}&output=json`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`crt.sh returned HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Unexpected response shape from crt.sh');
+
+    setStatus(`Retrieved ${data.length} CT log entries for <strong>${escapeHtml(domain)}</strong> · cross-referencing with EU Trust List …`);
+    renderResults(domain, data);
+    setTimeout(clearStatus, 2500);
+  } catch (err) {
+    setStatus(
+      `Lookup failed: ${escapeHtml(err.message)}. ` +
+      `This is typically a temporary CORS or rate-limit issue with crt.sh. ` +
+      `You can verify the data manually at <a href="https://crt.sh/?q=${encodeURIComponent(domain)}" target="_blank" rel="noopener" style="color: var(--accent);">crt.sh/?q=${escapeHtml(domain)}</a>.`,
+      true
+    );
+  }
+}
+
+// Event wiring
+$('#lookup').addEventListener('click', () => lookup($('#domain').value));
+$('#domain').addEventListener('keydown', (e) => { if (e.key === 'Enter') lookup(e.target.value); });
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    $('#domain').value = chip.dataset.domain;
+    lookup(chip.dataset.domain);
+  });
+});
+
+// Optional: run a default lookup on first load so the page demonstrates itself
+window.addEventListener('load', () => {
+  $('#domain').value = 'deutsche-bank.de';
+  lookup('deutsche-bank.de');
+});
+</script>
+</body>
+</html>
