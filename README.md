@@ -1,5 +1,16 @@
 # QWAC Trust Chain Verifier
 
+> A browser-only tool that inspects real EU banks' TLS certificates through public Certificate Transparency logs and checks whether each issuer is an EU Qualified Trust Service Provider (QTSP) under eIDAS 2.0.
+
+**Companion demo to my research paper:** *Security and Privacy Evaluation of Certificate Trust Chains in Digital Identity Wallet Onboarding for Banking: An Analysis Under the eIDAS 2.0 Architecture Reference Framework.*
+
+**Key points**
+- Fetches live data from **crt.sh**, the public Certificate Transparency log (RFC 9162)
+- Cross-references certificate issuers against the **EU Trust List** of QTSPs
+- Demo bank set is drawn from the **EBA Credit Institutions Register**
+- Zero dependencies: one `index.html`, vanilla JS, no backend and no telemetry
+- Clearly states what it does *not* do (no OID-level QWAC proof, no revocation checks), in line with the paper's threat model
+
 A working demonstration that accompanies the research paper *Security and Privacy Evaluation of Certificate Trust Chains in Digital Identity Wallet Onboarding for Banking: An Analysis Under the eIDAS 2.0 Architecture Reference Framework*.
 
 This is a single-file web application. There is no backend, no database, no telemetry. Open `index.html` in any modern browser and it runs.
